@@ -176,9 +176,8 @@ input[type="text"]:focus, input[type="password"]:focus {{
 }}
 
 /* Buttons */
-div[data-testid="stButton"] > button,
-div[data-testid="stFormSubmitButton"] > button {{
-    background: {text_main} !important;
+button[kind="secondary"], button[kind="primary"], button[kind="primaryFormSubmit"] {{
+    background-color: {text_main} !important;
     color: {bg_main} !important;
     border: 2px solid {border_main} !important;
     border-radius: 50px !important;
@@ -189,29 +188,16 @@ div[data-testid="stFormSubmitButton"] > button {{
     transition: all 0.2s ease !important;
     box-shadow: 0 4px 14px rgba(0,0,0,0.15) !important;
 }}
-div[data-testid="stButton"] > button p,
-div[data-testid="stFormSubmitButton"] > button p,
-div[data-testid="stDownloadButton"] > button p,
-div[data-testid="stButton"] > button div,
-div[data-testid="stFormSubmitButton"] > button div,
-div[data-testid="stDownloadButton"] > button div,
-div[data-testid="stButton"] > button span,
-div[data-testid="stFormSubmitButton"] > button span,
-div[data-testid="stDownloadButton"] > button span {{
+button[kind="secondary"] *, button[kind="primary"] *, button[kind="primaryFormSubmit"] * {{
     color: {bg_main} !important;
 }}
-div[data-testid="stButton"] > button:hover,
-div[data-testid="stFormSubmitButton"] > button:hover {{
+button[kind="secondary"]:hover, button[kind="primary"]:hover, button[kind="primaryFormSubmit"]:hover {{
     transform: translateY(-2px) !important;
     box-shadow: 0 6px 20px rgba(14, 165, 233, 0.3) !important;
-    background: {border_hover} !important;
+    background-color: {border_hover} !important;
+    border-color: {border_hover} !important;
 }}
-div[data-testid="stButton"] > button:hover p,
-div[data-testid="stFormSubmitButton"] > button:hover p,
-div[data-testid="stButton"] > button:hover div,
-div[data-testid="stFormSubmitButton"] > button:hover div,
-div[data-testid="stButton"] > button:hover span,
-div[data-testid="stFormSubmitButton"] > button:hover span {{
+button[kind="secondary"]:hover *, button[kind="primary"]:hover *, button[kind="primaryFormSubmit"]:hover * {{
     color: #ffffff !important;
 }}
 
