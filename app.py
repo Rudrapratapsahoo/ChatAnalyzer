@@ -385,6 +385,9 @@ def render_footer():
                 <a href="https://github.com/Keshav3105" target="_blank" title="Keshav's GitHub" style="color: {text_sec}; transition: color 0.3s;">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
                 </a>
+                <a href="https://www.linkedin.com/in/keshav-gupta-a16236322/" target="_blank" title="Keshav's LinkedIn" style="color: {text_sec}; transition: color 0.3s;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+                </a>
             </div>
             <span style="color: {text_sec};">&copy; 2026 ChatAnalyzer. All rights reserved.</span>
         </div>
@@ -661,12 +664,13 @@ st.markdown("<br>", unsafe_allow_html=True)
 # ══════════════════════════════════════════════════════════════════════════════
 # PLOTLY THEME
 # ══════════════════════════════════════════════════════════════════════════════
+grid_col = "rgba(0,0,0,0.1)" if st.session_state["theme"] == "light" else "rgba(255,255,255,0.1)"
 PLOT_LAYOUT = dict(
     plot_bgcolor="rgba(0,0,0,0)",
     paper_bgcolor="rgba(0,0,0,0)",
-    font=dict(color="#c0c0c0", family="Poppins"),
-    xaxis=dict(gridcolor="rgba(255,255,255,0.05)"),
-    yaxis=dict(gridcolor="rgba(255,255,255,0.05)"),
+    font=dict(color=text_main, family="Inter"),
+    xaxis=dict(gridcolor=grid_col),
+    yaxis=dict(gridcolor=grid_col),
 )
 
 
@@ -685,20 +689,20 @@ with t1:
         st.markdown('<div class="sec-header">Monthly Timeline</div>', unsafe_allow_html=True)
         mt = helper.monthly_timeline(df)
         fig = px.area(mt, x="label", y="count", markers=True,
-                      color_discrete_sequence=["#ffffff"],
+                      color_discrete_sequence=[border_hover],
                       labels={"label": "Month", "count": "Messages"})
         fig.update_layout(**PLOT_LAYOUT, xaxis_title="", yaxis_title="Messages",
                           margin=dict(l=0, r=0, t=20, b=0))
-        fig.update_traces(fillcolor="rgba(255, 255, 255, 0.15)")
+        fig.update_traces(fillcolor="rgba(14, 165, 233, 0.15)")
         st.plotly_chart(fig, use_container_width=True)
 
     with R:
         st.markdown('<div class="sec-header">Daily Timeline</div>', unsafe_allow_html=True)
         dt = helper.daily_timeline(df)
         fig = px.line(dt, x="only_date", y="count",
-                      color_discrete_sequence=["#cccccc"],
+                      color_discrete_sequence=[text_sec],
                       labels={"only_date": "Date", "count": "Messages"})
-        fig.update_traces(fill='tozeroy', fillcolor='rgba(200, 200, 200, 0.15)')
+        fig.update_traces(fill='tozeroy', fillcolor='rgba(14, 165, 233, 0.1)')
         fig.update_layout(**PLOT_LAYOUT, xaxis_title="", yaxis_title="Messages",
                           margin=dict(l=0, r=0, t=20, b=0))
         st.plotly_chart(fig, use_container_width=True)
@@ -712,8 +716,8 @@ with t2:
         wd = helper.week_activity(df)
         wd.columns = ["day","count"]
         max_idx = wd["count"].idxmax()
-        colors = ['rgba(255, 255, 255, 0.1)'] * len(wd)
-        colors[max_idx] = '#ffffff'
+        colors = [grid_col] * len(wd)
+        colors[max_idx] = border_hover
 
         fig = px.bar(wd, y="day", x="count", orientation='h',
                      labels={"day": "", "count": "Messages"})
@@ -725,7 +729,7 @@ with t2:
     with R:
         st.markdown('<div class="sec-header">Hour × Day Heatmap</div>', unsafe_allow_html=True)
         hm = helper.heatmap_data(df)
-        fig = px.imshow(hm, color_continuous_scale=["#111111", "#444444", "#888888", "#ffffff"],
+        fig = px.imshow(hm, color_continuous_scale=[bg_main, border_hover],
                         aspect="auto",
                         labels=dict(x="Hour of Day", y="Day of Week", color="Messages"))
         fig.update_layout(**PLOT_LAYOUT, margin=dict(l=0, r=0, t=20, b=0),
@@ -744,7 +748,7 @@ with t3:
             fig = px.bar(tu.sort_values('count', ascending=True),
                          y="user", x="count", orientation='h',
                          color="count",
-                         color_continuous_scale=["#444444", "#ffffff"],
+                         color_continuous_scale=[grid_col, border_hover],
                          labels={"user": "", "count": "Messages"})
             fig.update_layout(**PLOT_LAYOUT,
                               margin=dict(l=0, r=0, t=0, b=0), coloraxis_showscale=False)
@@ -771,7 +775,7 @@ with t4:
         fig = px.bar(tw.sort_values('count', ascending=True),
                      y="word", x="count", orientation='h',
                      color="count",
-                     color_continuous_scale=["#444444", "#cccccc"],
+                     color_continuous_scale=[grid_col, border_hover],
                      labels={"word": "", "count": "Occurrences"})
         fig.update_layout(**PLOT_LAYOUT,
                           margin=dict(l=0, r=0, t=0, b=0), coloraxis_showscale=False)
@@ -790,23 +794,22 @@ with t5:
         with R:
             top8 = em.head(8)
             fig = px.pie(top8, values="Count", names="Emoji", hole=0.45,
-                         color_discrete_sequence=["#ffffff","#dddddd","#bbbbbb","#999999",
-                                                   "#777777","#555555","#333333","#111111"])
+                         color_discrete_sequence=[border_hover, "#38bdf8", "#0ea5e9", text_sec, border_main, grid_col, "#94a3b8", "#cbd5e1"])
             fig.update_traces(textposition='inside', textinfo='percent+label')
             fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), showlegend=False,
-                              paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#c0c0c0"))
+                              paper_bgcolor="rgba(0,0,0,0)", font=dict(color=text_main))
             st.plotly_chart(fig, use_container_width=True)
 
 # ─── TAB 6 — Sentiment ───────────────────────────────────────────────────────
 with t6:
     st.markdown('<div class="sec-header">Sentiment by User (VADER)</div>', unsafe_allow_html=True)
     sd = helper.sentiment_stats(df)
-    sd['color'] = sd['avg'].apply(lambda x: '#ffffff' if x >= 0 else '#555555')
+    sd['color'] = sd['avg'].apply(lambda x: border_hover if x >= 0 else text_sec)
 
     fig = px.bar(sd, x="user", y="avg",
                  labels={"user": "User", "avg": "Average VADER Score"})
     fig.update_traces(marker_color=sd['color'])
-    fig.add_hline(y=0, line_dash="dash", line_color="#555", opacity=0.8)
+    fig.add_hline(y=0, line_dash="dash", line_color=text_sec, opacity=0.8)
     fig.update_layout(**PLOT_LAYOUT, margin=dict(l=0, r=0, t=20, b=0))
     st.plotly_chart(fig, use_container_width=True)
     st.caption("Score > 0 → positive  |  Score < 0 → negative  |  Range: −1 to +1")
