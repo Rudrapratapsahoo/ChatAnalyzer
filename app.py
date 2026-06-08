@@ -176,7 +176,9 @@ input[type="text"]:focus, input[type="password"]:focus {{
 }}
 
 /* Buttons */
-button[kind="secondary"], button[kind="primary"], button[kind="primaryFormSubmit"] {{
+div[data-testid="stButton"] button,
+div[data-testid="stFormSubmitButton"] button,
+div[data-testid="stDownloadButton"] button {{
     background-color: {text_main} !important;
     color: {bg_main} !important;
     border: 2px solid {border_main} !important;
@@ -188,16 +190,22 @@ button[kind="secondary"], button[kind="primary"], button[kind="primaryFormSubmit
     transition: all 0.2s ease !important;
     box-shadow: 0 4px 14px rgba(0,0,0,0.15) !important;
 }}
-button[kind="secondary"] *, button[kind="primary"] *, button[kind="primaryFormSubmit"] * {{
+div[data-testid="stButton"] button *,
+div[data-testid="stFormSubmitButton"] button *,
+div[data-testid="stDownloadButton"] button * {{
     color: {bg_main} !important;
 }}
-button[kind="secondary"]:hover, button[kind="primary"]:hover, button[kind="primaryFormSubmit"]:hover {{
+div[data-testid="stButton"] button:hover,
+div[data-testid="stFormSubmitButton"] button:hover,
+div[data-testid="stDownloadButton"] button:hover {{
     transform: translateY(-2px) !important;
     box-shadow: 0 6px 20px rgba(14, 165, 233, 0.3) !important;
     background-color: {border_hover} !important;
     border-color: {border_hover} !important;
 }}
-button[kind="secondary"]:hover *, button[kind="primary"]:hover *, button[kind="primaryFormSubmit"]:hover * {{
+div[data-testid="stButton"] button:hover *,
+div[data-testid="stFormSubmitButton"] button:hover *,
+div[data-testid="stDownloadButton"] button:hover * {{
     color: #ffffff !important;
 }}
 
