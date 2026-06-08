@@ -1,0 +1,21 @@
+01/05/2023, 10:15 - Alice: Hey team, are we still on for the meeting at 2 PM?
+01/05/2023, 10:17 - Bob: Yes, I'll be there! Let me know if you need anything prepared beforehand.
+01/05/2023, 10:20 - Charlie: I'll be a few minutes late, stuck in traffic.
+01/05/2023, 10:22 - Alice: No worries Charlie. Bob, can you share the presentation link?
+01/05/2023, 10:25 - Bob: Sure, here it is: https://example.com/presentation
+01/05/2023, 14:02 - Alice: Alright, we're starting. Charlie, join when you can.
+01/05/2023, 14:10 - Charlie: Joining now!
+02/05/2023, 09:30 - Alice: Great work yesterday everyone. The client loved it! 🎉
+02/05/2023, 09:35 - Bob: Awesome! That's really good news. Let's keep the momentum going.
+02/05/2023, 10:00 - Charlie: Fantastic! We should celebrate later. 🍻
+02/05/2023, 10:15 - Alice: <Media omitted>
+03/05/2023, 11:20 - Bob: I noticed a bug in the new release, I'm looking into it right now.
+03/05/2023, 11:45 - Charlie: Want me to help out?
+03/05/2023, 12:00 - Bob: Thanks, I think I've figured it out. Just a typo in the config file.
+04/05/2023, 15:30 - Alice: Hey everyone, just a reminder about the team lunch tomorrow.
+04/05/2023, 15:32 - Bob: Looking forward to it!
+04/05/2023, 15:50 - Charlie: Same here. Where are we going?
+04/05/2023, 16:00 - Alice: We're going to that new Italian place downtown.
+05/05/2023, 13:00 - Alice: Thanks for the lunch guys! Have a great weekend.
+05/05/2023, 13:10 - Bob: You too!
+05/05/2023, 13:20 - Charlie: Have a good one!

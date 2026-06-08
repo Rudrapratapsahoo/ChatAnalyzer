@@ -1,264 +1,621 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import seaborn as sns
+import plotly.express as px
+import plotly.graph_objects as go
 from wordcloud import WordCloud
 import numpy as np
 from collections import Counter
 import random, datetime
+import helper
+from preprocessor import preprocess
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="ChatAnalyzer",
     page_icon="💬",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
+# ── Session State for Theme ───────────────────────────────────────────────────
+if "theme" not in st.session_state:
+    st.session_state["theme"] = "light"
+
+def toggle_theme():
+    st.session_state["theme"] = "dark" if st.session_state["theme"] == "light" else "light"
+
+# ── Theme Variables ───────────────────────────────────────────────────────────
+if st.session_state["theme"] == "light":
+    bg_main = "#ffffff"
+    text_main = "#0f172a"
+    text_sec = "#334155"
+    border_main = "#bae6fd"
+    border_hover = "#0ea5e9"
+    card_bg = "rgba(0, 0, 0, 0.05)"
+    card_border = "rgba(0, 0, 0, 0.1)"
+    card_hover = "rgba(0, 0, 0, 0.3)"
+    icon_1, icon_2, icon_3, icon_4 = "#1e293b", "#334155", "#0f172a", "#475569"
+else:
+    bg_main = "#0f172a"
+    text_main = "#f8fafc"
+    text_sec = "#cbd5e1"
+    border_main = "#334155"
+    border_hover = "#38bdf8"
+    card_bg = "rgba(255, 255, 255, 0.05)"
+    card_border = "rgba(255, 255, 255, 0.1)"
+    card_hover = "rgba(255, 255, 255, 0.2)"
+    icon_1, icon_2, icon_3, icon_4 = "#cbd5e1", "#94a3b8", "#f8fafc", "#64748b"
+
 # ── CSS ───────────────────────────────────────────────────────────────────────
-st.markdown("""
+st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap');
+/* Dynamic Theme */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
-html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
+html, body, [class*="css"] {{ font-family: 'Inter', sans-serif; }}
 
-section[data-testid="stSidebar"] { background:#0f0f0f !important; border-right:1px solid #222; }
-section[data-testid="stSidebar"] * { color:#d0d0d0 !important; }
-section[data-testid="stSidebar"] h1,
-section[data-testid="stSidebar"] h2,
-section[data-testid="stSidebar"] h3 { color:#fff !important; }
+/* Hide sidebar completely */
+section[data-testid="stSidebar"] {{ display: none !important; }}
+button[kind="header"] {{ display: none !important; }}
 
-div[data-testid="stButton"] > button {
-    background:#111; color:#fff; border:none; border-radius:8px;
-    font-family:'Space Mono',monospace; font-size:0.78rem;
-    letter-spacing:0.06em; padding:0.6rem 1.4rem; width:100%; margin-top:0.5rem;
-    transition:background .2s;
-}
-div[data-testid="stButton"] > button:hover { background:#333; }
+/* Main Background */
+.stApp {{
+    background-color: {bg_main};
+    color: {text_main};
+    min-height: 100vh;
+}}
 
-.kpi-card {
-    background:#f8f8f8; border:1.5px solid #eaeaea; border-radius:14px;
-    padding:1.4rem 1rem; text-align:center;
-    transition:transform .2s, box-shadow .2s;
-}
-.kpi-card:hover { transform:translateY(-3px); box-shadow:0 8px 24px rgba(0,0,0,.07); }
-.kpi-icon  { font-size:1.5rem; margin-bottom:.4rem; }
-.kpi-label { font-family:'Space Mono',monospace; font-size:.63rem; letter-spacing:.12em;
-             text-transform:uppercase; color:#999; margin-bottom:.35rem; }
-.kpi-value { font-family:'Space Mono',monospace; font-size:2rem; font-weight:700; color:#111; line-height:1; }
+/* Floating doodle overlay */
+.doodle-bg {{
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+}}
+.doodle-bg .icon {{
+    position: absolute;
+    opacity: 0.15;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}}
+@keyframes floatUp {{
+    0% {{ transform: translateY(110vh) rotate(0deg); }}
+    100% {{ transform: translateY(-15vh) rotate(360deg); }}
+}}
+@keyframes floatDiag {{
+    0% {{ transform: translate(0, 110vh) rotate(0deg); }}
+    100% {{ transform: translate(-80px, -15vh) rotate(-360deg); }}
+}}
 
-.sec-header {
-    font-family:'Space Mono',monospace; font-size:.65rem; letter-spacing:.15em;
-    text-transform:uppercase; color:#aaa;
-    border-bottom:1px solid #eee; padding-bottom:.45rem; margin-bottom:1rem;
-}
+/* Text colors */
+.stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp p,
+.stApp label, .stApp span, .stApp div {{
+    color: {text_main};
+}}
 
-button[data-baseweb="tab"] {
-    font-family:'Space Mono',monospace !important;
-    font-size:.7rem !important; letter-spacing:.06em !important;
-}
+/* Elements */
+.stMarkdown, .stText {{ color: {text_main}; }}
+[data-testid="stFileUploader"] label {{ color: {text_main} !important; }}
+[data-testid="stSelectbox"] label {{ color: {text_main} !important; }}
+
+/* File uploader styling */
+[data-testid="stFileUploader"] {{
+    background: {card_bg};
+    border-radius: 16px;
+    padding: 1.5rem;
+    border: 2px dashed {border_main};
+    transition: all 0.3s ease;
+}}
+[data-testid="stFileUploader"]:hover {{
+    border-color: {border_hover};
+    background: {card_bg};
+}}
+[data-testid="stFileUploader"] button {{
+    background: {text_main} !important;
+    color: {bg_main} !important;
+    border-radius: 50px !important;
+    border: none !important;
+    font-weight: 600 !important;
+    transition: all 0.3s ease !important;
+}}
+[data-testid="stFileUploader"] button:hover {{
+    background: {border_hover} !important;
+    color: #ffffff !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3) !important;
+}}
+[data-testid="stFileUploader"] small, [data-testid="stFileUploader"] div[data-testid="stFileUploaderDropzoneInstructions"] div {{
+    color: {text_sec} !important;
+}}
+
+/* Select box styling */
+[data-testid="stSelectbox"] > div > div {{
+    background: {card_bg} !important;
+    border-color: {border_main} !important;
+    color: {text_main} !important;
+    border-radius: 8px !important;
+}}
+
+/* Text input styling */
+input[type="text"], input[type="password"] {{
+    background: {card_bg} !important;
+    border: 2px solid {border_main} !important;
+    color: {text_main} !important;
+    border-radius: 12px !important;
+    padding: 0.8rem 1rem !important;
+    font-weight: 500;
+    font-family: 'Inter', sans-serif;
+    font-size: 1rem !important;
+    transition: all 0.2s ease;
+}}
+input[type="text"]:focus, input[type="password"]:focus {{
+    border-color: {border_hover} !important;
+    background: {bg_main} !important;
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15) !important;
+}}
+
+/* Buttons */
+div[data-testid="stButton"] > button,
+div[data-testid="stFormSubmitButton"] > button {{
+    background: {text_main} !important;
+    color: {bg_main} !important;
+    border: none !important;
+    border-radius: 50px !important;
+    font-weight: 700 !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 1.05rem !important;
+    padding: 0.8rem 2rem !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.15) !important;
+}}
+div[data-testid="stButton"] > button p,
+div[data-testid="stFormSubmitButton"] > button p,
+div[data-testid="stDownloadButton"] > button p {{
+    color: {bg_main} !important;
+}}
+div[data-testid="stButton"] > button:hover,
+div[data-testid="stFormSubmitButton"] > button:hover {{
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px rgba(14, 165, 233, 0.3) !important;
+    background: {border_hover} !important;
+}}
+div[data-testid="stButton"] > button:hover p,
+div[data-testid="stFormSubmitButton"] > button:hover p {{
+    color: #ffffff !important;
+}}
+
+/* Download button */
+div[data-testid="stDownloadButton"] > button {{
+    background: {text_main};
+    color: {bg_main} !important;
+    border: none;
+    border-radius: 30px;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}}
+div[data-testid="stDownloadButton"] > button:hover {{
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(14, 165, 233, 0.3);
+    background: {border_hover};
+}}
+div[data-testid="stDownloadButton"] > button:hover p {{
+    color: #ffffff !important;
+}}
+
+/* Glassmorphism Cards */
+.glass-card {{
+    background: {card_bg};
+    backdrop-filter: blur(12px);
+    border: 1px solid {card_border};
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    animation: fadeInUp 0.6s ease-out forwards;
+}}
+.glass-card:hover {{ transform: translateY(-3px); border-color: {card_hover}; }}
+
+/* KPI Cards */
+.kpi-card {{
+    background: {card_bg};
+    border-radius: 12px;
+    padding: 1rem;
+    text-align: center;
+    border: 1px solid {card_border};
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    animation: fadeInUp 0.6s ease-out forwards;
+    transition: all 0.3s ease;
+}}
+.kpi-card:hover {{ transform: translateY(-3px); border-color: {card_hover}; }}
+.kpi-icon {{ font-size: 1.8rem; margin-bottom: 0.4rem; }}
+.kpi-label {{ font-weight: 500; font-size: 0.75rem; color: {text_sec}; margin-bottom: 0.3rem; }}
+.kpi-value {{ font-size: 1.8rem; font-weight: 700; color: {text_main}; }}
+
+/* Feature Cards */
+.feature-card {{
+    background: {card_bg};
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    border: 1px solid {card_border};
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+    width: 100%;
+    max-width: 260px;
+    margin: auto;
+}}
+.feature-card:hover {{ transform: translateY(-4px); box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15); border-color: {border_hover}; }}
+.feature-card h4 {{ color: {text_main}; margin-top: 0.5rem; }}
+.feature-card p {{ color: {text_sec}; font-size: 0.85rem; }}
+
+/* Animations */
+@keyframes fadeInUp {{ from {{ opacity:0; transform:translateY(20px); }} to {{ opacity:1; transform:translateY(0); }} }}
+@keyframes float {{ 0%,100% {{ transform:translateY(0); }} 50% {{ transform:translateY(-8px); }} }}
+
+/* Header */
+.dash-title, .hero-title {{
+    color: {text_main};
+    font-weight: 900;
+    letter-spacing: -0.03em;
+}}
+
+/* Misc utility */
+.gradient-divider {{ height:2px; background: rgba(14, 165, 233, 0.6); margin:2rem 0; border-radius: 2px; }}
+.stCaption {{ color: {text_sec} !important; }}
+
+/* Login / Hero */
+.login-container, .hero-title {{ background: transparent; }}
+.login-title {{ color: {text_main}; font-weight: 800; }}
+
+/* Alert overrides */
+[data-testid="stAlert"] {{
+    background: {card_bg} !important;
+    border-radius: 12px !important;
+    border-left-width: 4px !important;
+    border-color: {border_hover} !important;
+    color: {text_main} !important;
+}}
+
+/* Caption styling */
+.stCaption {{ color: {text_sec} !important; }}
 </style>
+
+<!-- Floating Chat Doodle Icons Background -->
+<div class="doodle-bg">
+    <svg class="icon" style="left:3%;  width:38px; animation: floatUp 28s 0s infinite;" viewBox="0 0 24 24" fill="none" stroke="{icon_1}" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    <svg class="icon" style="left:12%; width:28px; animation: floatDiag 35s 3s infinite;" viewBox="0 0 24 24" fill="none" stroke="{icon_2}" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+    <svg class="icon" style="left:22%; width:32px; animation: floatUp 32s 6s infinite;" viewBox="0 0 24 24" fill="none" stroke="{icon_3}" stroke-width="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+    <svg class="icon" style="left:32%; width:26px; animation: floatDiag 26s 1s infinite;" viewBox="0 0 24 24" fill="none" stroke="{icon_4}" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    <svg class="icon" style="left:42%; width:34px; animation: floatUp 30s 8s infinite;" viewBox="0 0 24 24" fill="none" stroke="{icon_1}" stroke-width="1.5"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+    <svg class="icon" style="left:53%; width:30px; animation: floatDiag 33s 5s infinite;" viewBox="0 0 24 24" fill="none" stroke="{icon_3}" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    <svg class="icon" style="left:63%; width:36px; animation: floatUp 27s 2s infinite;" viewBox="0 0 24 24" fill="none" stroke="{icon_2}" stroke-width="1.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+    <svg class="icon" style="left:73%; width:24px; animation: floatDiag 36s 7s infinite;" viewBox="0 0 24 24" fill="none" stroke="{icon_1}" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+    <svg class="icon" style="left:83%; width:32px; animation: floatUp 31s 4s infinite;" viewBox="0 0 24 24" fill="none" stroke="{icon_3}" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+    <svg class="icon" style="left:93%; width:28px; animation: floatDiag 29s 9s infinite;" viewBox="0 0 24 24" fill="none" stroke="{icon_4}" stroke-width="1.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+    <svg class="icon" style="left:7%;  width:22px; animation: floatUp 34s 11s infinite;" viewBox="0 0 24 24" fill="none" stroke="{icon_1}" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    <svg class="icon" style="left:48%; width:26px; animation: floatDiag 25s 13s infinite;" viewBox="0 0 24 24" fill="none" stroke="{icon_3}" stroke-width="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    <svg class="icon" style="left:58%; width:30px; animation: floatUp 37s 10s infinite;" viewBox="0 0 24 24" fill="none" stroke="{icon_2}" stroke-width="1.5"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+    <svg class="icon" style="left:88%; width:34px; animation: floatDiag 32s 15s infinite;" viewBox="0 0 24 24" fill="none" stroke="{icon_1}" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    <svg class="icon" style="left:18%; width:28px; animation: floatUp 29s 14s infinite;" viewBox="0 0 24 24" fill="none" stroke="{icon_3}" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+</div>
 """, unsafe_allow_html=True)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# DUMMY DATA — replace this entire block with preprocessor.preprocess(data)
-# ══════════════════════════════════════════════════════════════════════════════
-@st.cache_data(show_spinner=False)
-def get_dummy_df():
-    random.seed(42)
-    users   = ["Keshav", "Ananya", "Rohan", "Priya"]
-    msgs_pool = [
-        "okay sounds good", "haha lol", "<Media omitted>",
-        "bhai sach mein?", "thik hai", "kya kar raha hai",
-        "chalo niklo", "meeting at 5?", "done ✅",
-        "😂😂😂", "no way bro", "check this https://example.com",
-        "kal milte hain", "ye lo link https://youtu.be/xyz",
-        "sent a photo <Media omitted>", "okay okay",
-    ]
-    base = datetime.datetime(2023, 1, 1, 10, 0)
-    rows = []
-    for _ in range(900):
-        base += datetime.timedelta(hours=random.randint(0, 5),
-                                   minutes=random.randint(0, 59))
-        rows.append({"date": base,
-                     "user": random.choice(users),
-                     "message": random.choice(msgs_pool)})
-    df = pd.DataFrame(rows)
-    df["year"]      = df["date"].dt.year
-    df["month_num"] = df["date"].dt.month
-    df["month"]     = df["date"].dt.month_name()
-    df["day_name"]  = df["date"].dt.day_name()
-    df["hour"]      = df["date"].dt.hour
-    df["only_date"] = df["date"].dt.date
-    return df
-
 
 # ══════════════════════════════════════════════════════════════════════════════
-# INLINE ANALYSIS HELPERS
-# (each one will be replaced by a call to helper.py when your teammate plugs it in)
 # ══════════════════════════════════════════════════════════════════════════════
-DAY_ORDER = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
+# FOOTER HTML (rendered via components.html for proper SVG support)
+# ══════════════════════════════════════════════════════════════════════════════
 
-def calc_stats(df):
-    total_msgs  = len(df)
-    total_words = df["message"].dropna().apply(lambda x: len(str(x).split())).sum()
-    media       = df["message"].str.contains("<Media omitted>", na=False).sum()
-    links       = df["message"].str.contains("https?://", na=False).sum()
-    return int(total_msgs), int(total_words), int(media), int(links)
 
-def monthly_timeline(df):
-    t = (df.groupby(["year","month_num","month"]).size()
-           .reset_index(name="count").sort_values(["year","month_num"]))
-    t["label"] = t["month"].str[:3] + " " + t["year"].astype(str)
-    return t
 
-def daily_timeline(df):
-    return df.groupby("only_date").size().reset_index(name="count")
 
-def week_activity(df):
-    return (df["day_name"].value_counts()
-              .reindex(DAY_ORDER, fill_value=0)
-              .reset_index()
-              .rename(columns={"index":"day","day_name":"count","count":"count"}))
 
-def heatmap_data(df):
-    hm = df.pivot_table(index="day_name", columns="hour",
-                        values="message", aggfunc="count").reindex(DAY_ORDER).fillna(0)
-    for h in range(24):
-        if h not in hm.columns: hm[h] = 0
-    return hm[sorted(hm.columns)]
+def render_footer():
+    """Render footer using components.html for proper SVG support."""
+    FOOTER_HTML = f"""
+    <style>
+        body {{
+            background-color: transparent;
+            margin: 0;
+            color: {text_main};
+        }}
+    </style>
+    <div style="
+        background-color: transparent;
+        padding: 3rem 2rem 1rem;
+        font-family: 'Poppins', sans-serif;
+        margin-top: 3rem;
+        border-top: 1px solid {card_border};
+    ">
+        <div style="
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            max-width: 1100px;
+            margin: 0 auto;
+            gap: 2rem;
+        ">
+            <div style="flex: 1.5; min-width: 220px;">
+                <div style="font-size: 1.4rem; font-weight: 700; color: {text_main}; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00d2ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    Chat<span style="color: #00d2ff;">Analyzer</span>
+                </div>
+                <p style="font-size: 0.85rem; line-height: 1.6; color: {text_sec};">Empowering users with smart chat analysis tools, helping you discover insights and understand your conversations better.</p>
+            </div>
+            <div style="flex: 1; min-width: 160px;">
+                <div style="color: {text_main}; font-weight: 600; margin-bottom: 1rem; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.08em;">Quick Links</div>
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    <li style="margin-bottom: 0.7rem;"><a href="#" style="color: {text_sec}; text-decoration: none; font-size: 0.85rem; transition: color 0.3s;">Upload Chat</a></li>
+                    <li style="margin-bottom: 0.7rem;"><a href="#" style="color: {text_sec}; text-decoration: none; font-size: 0.85rem;">View Analytics</a></li>
+                    <li style="margin-bottom: 0.7rem;"><a href="#" style="color: {text_sec}; text-decoration: none; font-size: 0.85rem;">Sentiment Dashboard</a></li>
+                </ul>
+            </div>
+            <div style="flex: 1; min-width: 160px;">
+                <div style="color: {text_main}; font-weight: 600; margin-bottom: 1rem; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.08em;">Platform Values</div>
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    <li style="margin-bottom: 0.7rem; display: flex; align-items: center;"><span style="color: #00d2ff; margin-right: 0.5rem;">&#8226;</span><span style="font-size: 0.85rem;">100% Private</span></li>
+                    <li style="margin-bottom: 0.7rem; display: flex; align-items: center;"><span style="color: #00d2ff; margin-right: 0.5rem;">&#8226;</span><span style="font-size: 0.85rem;">No Data Storage</span></li>
+                    <li style="margin-bottom: 0.7rem; display: flex; align-items: center;"><span style="color: #00d2ff; margin-right: 0.5rem;">&#8226;</span><span style="font-size: 0.85rem;">Deep Insights</span></li>
+                    <li style="margin-bottom: 0.7rem; display: flex; align-items: center;"><span style="color: #00d2ff; margin-right: 0.5rem;">&#8226;</span><span style="font-size: 0.85rem;">Smart Analytics</span></li>
+                </ul>
+            </div>
+            <div style="flex: 1; min-width: 180px;">
+                <div style="color: {text_main}; font-weight: 600; margin-bottom: 1rem; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.08em;">Get In Touch</div>
+                <ul style="list-style: none; padding: 0; margin: 0;">
+                    <li style="margin-bottom: 0.7rem; font-size: 0.85rem;">&#128205; India</li>
+                    <li style="margin-bottom: 0.7rem; font-size: 0.85rem;">&#128222; +91 98765 43210</li>
+                    <li style="margin-bottom: 0.7rem; font-size: 0.85rem;">&#9993; support@chatanalyzer.com</li>
+                </ul>
+            </div>
+        </div>
 
-def top_users(df):
-    vc = df["user"].value_counts()
-    top  = vc.head(10).reset_index(); top.columns  = ["user","count"]
-    pct  = (vc/vc.sum()*100).round(1).reset_index(); pct.columns = ["user","percent"]
-    return top, pct
-
-def top_words(df, n=20):
-    stop = {"the","a","an","is","it","in","on","at","to","and","or","of","for",
-            "with","this","that","was","are","be","have","i","you","we","they",
-            "media","omitted","hai","kya","nahi","bhi","toh","tha","ok","okay"}
-    words = []
-    for m in df["message"].dropna():
-        if "<Media omitted>" in str(m): continue
-        for w in str(m).lower().split():
-            w = w.strip(".,!?\"'")
-            if w and w not in stop and len(w) > 2: words.append(w)
-    return pd.DataFrame(Counter(words).most_common(n), columns=["word","count"])
-
-def emoji_stats(df):
-    import re
-    PAT = re.compile("[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF"
-                     "\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF]+",
-                     flags=re.UNICODE)
-    emojis = []
-    for m in df["message"].dropna():
-        emojis.extend(PAT.findall(str(m)))
-    if not emojis:
-        return pd.DataFrame(columns=["Emoji","Count"])
-    return pd.DataFrame(Counter(emojis).most_common(20), columns=["Emoji","Count"])
-
-def sentiment_stats(df):
-    try:
-        from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-        sia = SentimentIntensityAnalyzer()
-        tmp = df.copy()
-        tmp["score"] = tmp["message"].apply(lambda m: sia.polarity_scores(str(m))["compound"])
-        return tmp.groupby("user")["score"].mean().reset_index().rename(columns={"score":"avg"}).sort_values("avg", ascending=False)
-    except ImportError:
-        users = df["user"].unique()
-        rng   = np.random.default_rng(0)
-        return pd.DataFrame({"user": users, "avg": rng.uniform(-0.3, 0.6, len(users))})
-
-def make_wordcloud(df):
-    stop = {"the","a","an","is","it","in","on","ok","okay","media","omitted",
-            "hai","kya","nahi","bhi","toh","tha","aur","bhai"}
-    text = " ".join(str(m) for m in df["message"].dropna()
-                    if "<Media omitted>" not in str(m))
-    return WordCloud(width=700, height=320, background_color="white",
-                     colormap="Greys", stopwords=stop,
-                     max_words=120, collocations=False).generate(text or "no data")
+        <div style="text-align: center; padding-top: 2rem; margin-top: 2rem; border-top: 1px solid {card_border}; font-size: 0.85rem;">
+            Made with <span style="color: #e74c3c;">&#10084;</span> by <span style="color: #00d2ff;">Rudra</span> &amp; <span style="color: #00d2ff;">Keshav</span>
+            <div style="display: flex; justify-content: center; gap: 1.5rem; margin: 1rem 0;">
+                <a href="https://github.com/Rudrapratapsahoo" target="_blank" title="Rudra's GitHub" style="color: {text_sec}; transition: color 0.3s;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                </a>
+                <a href="https://www.linkedin.com/in/rudra-pratap-sahoo-aba483291" target="_blank" title="Rudra's LinkedIn" style="color: {text_sec}; transition: color 0.3s;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+                </a>
+                <a href="https://github.com/Keshav3105" target="_blank" title="Keshav's GitHub" style="color: {text_sec}; transition: color 0.3s;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                </a>
+            </div>
+            <span style="color: {text_sec};">&copy; 2026 ChatAnalyzer. All rights reserved.</span>
+        </div>
+    </div>
+    """
+    components.html(FOOTER_HTML, height=500, scrolling=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SIDEBAR
+# SCREEN 1 — LOGIN
 # ══════════════════════════════════════════════════════════════════════════════
-with st.sidebar:
-    st.markdown("## 💬 ChatAnalyzer")
-    st.markdown("---")
+if "logged_in" not in st.session_state:
+    st.session_state["logged_in"] = False
+    st.session_state["username"] = ""
 
+if not st.session_state["logged_in"]:
+    # ── Header ──
+    col_th_empty, col_th = st.columns([12, 1])
+    with col_th:
+        theme_icon = "☀️" if st.session_state["theme"] == "dark" else "🌙"
+        st.button(theme_icon, on_click=toggle_theme, key="theme_toggle_login", help="Toggle Theme")
+        
+    st.markdown(f"""
+    <div style="text-align:center; padding-top: 4rem; padding-bottom: 2rem; animation: fadeInUp 0.8s ease-out;">
+        <div style="display: inline-block; margin-bottom: 1rem; padding: 0.5rem 1.5rem; background: rgba(14, 165, 233, 0.1); color: #0ea5e9; border-radius: 50px; font-weight: 600; font-size: 0.9rem; letter-spacing: 0.05em; border: 1px solid rgba(14, 165, 233, 0.2);">
+            ✨ THE ULTIMATE CHAT ANALYSIS TOOL
+        </div>
+        <h1 style="font-family: 'Inter', sans-serif; font-weight:900; font-size:5.5rem; color:{text_main}; margin-bottom: 1rem; letter-spacing: -0.04em; line-height: 1.1;">
+            Unlock Insights from Your <br>
+            <span style="background: linear-gradient(135deg, #0ea5e9, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Conversations</span>
+        </h1>
+        <p style="font-family: 'Inter', sans-serif; font-weight:500; font-size:1.25rem; color:{text_sec}; max-width: 600px; margin: 0 auto; line-height: 1.6;">
+            Transform your raw chat exports into beautiful, interactive dashboards. Discover peak hours, sentiment trends, and who really talks the most.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Login Form ──
+    col_empty1, col_login, col_empty2 = st.columns([1.5, 1, 1.5])
+    with col_login:
+        if st.button("Get Started Now ➜", use_container_width=True):
+            st.session_state["logged_in"] = True
+            st.session_state["username"] = "User"
+            st.rerun()
+
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
+
+    # ── Key Features Grid ──
+    st.markdown(f"""
+    <div style="text-align: center; margin-bottom: 3rem; animation: fadeInUp 1s ease-out;">
+        <h2 style="font-family: 'Inter', sans-serif; font-weight: 800; font-size: 2.5rem; color: {text_main};">Powerful Features</h2>
+        <p style="color: {text_sec}; font-size: 1.1rem;">Everything you need to understand your digital relationships.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="glass-card" style="text-align: center; height: 100%;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🔒</div>
+            <h3 style="color: {text_main}; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem;">Privacy First</h3>
+            <p style="color: {text_sec}; font-size: 0.95rem; line-height: 1.5;">Your data never leaves your browser. 100% local processing for absolute peace of mind.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="glass-card" style="text-align: center; height: 100%;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">☁️</div>
+            <h3 style="color: {text_main}; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem;">Word Clouds</h3>
+            <p style="color: {text_sec}; font-size: 0.95rem; line-height: 1.5;">Instantly visualize your most frequently used vocabulary and favorite emojis.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown(f"""
+        <div class="glass-card" style="text-align: center; height: 100%;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">📈</div>
+            <h3 style="color: {text_main}; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem;">Timeline Analytics</h3>
+            <p style="color: {text_sec}; font-size: 0.95rem; line-height: 1.5;">Track your conversation activity over months and days with interactive charts.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="glass-card" style="text-align: center; height: 100%;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">😊</div>
+            <h3 style="color: {text_main}; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem;">Sentiment Analysis</h3>
+            <p style="color: {text_sec}; font-size: 0.95rem; line-height: 1.5;">Evaluate the emotional tone of messages to see who brings the most positivity.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col3:
+        st.markdown(f"""
+        <div class="glass-card" style="text-align: center; height: 100%;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🔥</div>
+            <h3 style="color: {text_main}; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem;">Activity Heatmap</h3>
+            <p style="color: {text_sec}; font-size: 0.95rem; line-height: 1.5;">Discover exactly which days and hours you and your friends are most active.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="glass-card" style="text-align: center; height: 100%;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🏆</div>
+            <h3 style="color: {text_main}; font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem;">User Leaderboards</h3>
+            <p style="color: {text_sec}; font-size: 0.95rem; line-height: 1.5;">Find out who sends the most messages, links, and media in your group chats.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Spacer to push footer to bottom of viewport
+    st.markdown("<div style='min-height: 50vh;'></div>", unsafe_allow_html=True)
+    render_footer()
+    st.stop()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SCREEN 2 & 3 — UPLOAD / DASHBOARD (logged in)
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── Top bar ───────────────────────────────────────────────────────────────────
+top_l, top_t, top_r = st.columns([6, 1, 1])
+with top_l:
+    st.markdown(f"""
+    <div style="display: flex; align-items: center; gap: 1rem; padding: 0.5rem 0;">
+        <span style="font-size: 1.5rem; font-weight: 700;">
+            <span style="background: linear-gradient(135deg, #00d2ff, #7b2ff7); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                💬 ChatAnalyzer
+            </span>
+        </span>
+        <span class="user-badge" style="color: {text_main};">👋 {st.session_state['username']}</span>
+    </div>
+    """, unsafe_allow_html=True)
+with top_t:
+    theme_icon = "☀️" if st.session_state["theme"] == "dark" else "🌙"
+    theme_label = "Light Mode" if st.session_state["theme"] == "dark" else "Dark Mode"
+    st.button(f"{theme_icon} {theme_label}", on_click=toggle_theme, key="theme_toggle_main", use_container_width=True)
+with top_r:
+    if st.button("🚪 Logout", use_container_width=True):
+        st.session_state["logged_in"] = False
+        st.session_state["username"] = ""
+        st.session_state.pop("df", None)
+        st.session_state.pop("last_file", None)
+        st.session_state.pop("analyzed", None)
+        st.rerun()
+
+st.markdown('<div class="gradient-divider"></div>', unsafe_allow_html=True)
+
+# ── File upload (centered) ────────────────────────────────────────────────────
+if "df" not in st.session_state:
+    st.session_state["df"] = None
+
+col_u1, col_u2, col_u3 = st.columns([1, 3, 1])
+with col_u2:
     uploaded_file = st.file_uploader(
-        "Upload WhatsApp Export (.txt)",
+        "📁 Upload your WhatsApp chat export (.txt)",
         type=["txt"],
         help="WhatsApp → Chat → Export Chat → Without Media"
     )
 
-    # ── Session-state caching ──────────────────────────────────────
     if uploaded_file:
         fname = uploaded_file.name
         if st.session_state.get("last_file") != fname:
             with st.spinner("Parsing chat…"):
                 try:
-                    from preprocessor import preprocess          # teammate plugs this in
                     data = uploaded_file.read().decode("utf-8")
                     df_raw = preprocess(data)
-                    st.session_state["df"]        = df_raw
+                    st.session_state["df"] = df_raw
                     st.session_state["last_file"] = fname
-                    st.success(f"✅ {len(df_raw):,} messages loaded")
-                except ImportError:
-                    st.info("preprocessor.py not found — showing dummy data.")
-                    st.session_state["df"]        = get_dummy_df()
-                    st.session_state["last_file"] = fname
+                    st.success(f"✅ {len(df_raw):,} messages loaded from **{fname}**")
                 except Exception as e:
                     st.error(f"Parse error: {e}")
-                    st.session_state["df"]        = get_dummy_df()
+                    st.session_state["df"] = None
                     st.session_state["last_file"] = fname
-    else:
-        if "df" not in st.session_state:
-            st.session_state["df"] = get_dummy_df()
-        st.caption("No file uploaded — showing sample data.")
 
-    df_all = st.session_state["df"]
+df_all = st.session_state.get("df")
 
-    # ── User selector ──────────────────────────────────────────────
-    user_list    = ["Overall"] + sorted(df_all["user"].unique().tolist())
-    selected_user = st.selectbox("Analyze for", user_list)
-
-    analyze = st.button("🔍 Analyze")
-
-    st.markdown("---")
-    st.caption("Export: WhatsApp → Chat info\n→ Export chat → Without Media")
+# ── User selector + Analyze button (centered) ────────────────────────────────
+if df_all is not None and not df_all.empty:
+    col_s1, col_s2, col_s3 = st.columns([1, 3, 1])
+    with col_s2:
+        user_list = ["Overall"] + sorted(df_all["user"].unique().tolist())
+        selected_user = st.selectbox("🎯 Analyze for", user_list)
+        analyze = st.button("🔍 Analyze Chat")
+else:
+    selected_user = "Overall"
+    analyze = False
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# TITLE
-# ══════════════════════════════════════════════════════════════════════════════
-st.markdown("""
-<div style="padding:2rem 0 1.5rem; border-bottom:1.5px solid #111; margin-bottom:2rem;">
-  <div style="font-family:'Space Mono',monospace; font-size:2rem; font-weight:700;
-              letter-spacing:-.02em; color:#111;">
-    Chat<span style="color:#888">Analyzer</span>
-  </div>
-  <div style="color:#999; font-size:.95rem; margin-top:.3rem;">
-    WhatsApp conversation insights
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
-# ── Gate: show placeholder until Analyze is clicked ───────────────────────────
+# ── Gate: show landing page until Analyze is clicked ──────────────────────────
 if not analyze and "analyzed" not in st.session_state:
+    st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("""
-    <div style="text-align:center; padding:5rem 0; color:#ccc;">
-      <div style="font-size:3.5rem">💬</div>
-      <div style="font-family:'Space Mono',monospace; font-size:.75rem;
-                  letter-spacing:.12em; margin-top:1rem; color:#bbb;">
-        UPLOAD A CHAT &amp; CLICK ANALYZE
+    <div style="text-align:center; padding: 2rem 0; animation: fadeInUp 0.5s ease-out forwards;">
+      <div class="hero-title">Unlock the secrets of your chats 🔓</div>
+      <div class="hero-subtitle">
+        Discover who talks the most, what words you use, your emotional tone, and when you are most active.
+      </div>
+
+      <div style="display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; margin-top: 1rem;">
+        <div class="feature-card">
+          <div style="font-size: 2.5rem; margin-bottom: 1rem; animation: float 3s ease-in-out infinite;">🔒</div>
+          <h4>100% Private</h4>
+          <p>We don't store your data. Everything is processed directly in your browser.</p>
+        </div>
+        <div class="feature-card">
+          <div style="font-size: 2.5rem; margin-bottom: 1rem; animation: float 3s ease-in-out 0.5s infinite;">📊</div>
+          <h4>Deep Insights</h4>
+          <p>Timelines, heatmaps, and word clouds to visualize your conversation history.</p>
+        </div>
+        <div class="feature-card">
+          <div style="font-size: 2.5rem; margin-bottom: 1rem; animation: float 3s ease-in-out 1s infinite;">😊</div>
+          <h4>Sentiment & Emojis</h4>
+          <p>Understand the mood of the chat and see your favorite emojis at a glance.</p>
+        </div>
+      </div>
+
+      <div class="steps-card">
+        <h4>📱 How to export your WhatsApp chat:</h4>
+        <ol>
+          <li>Open WhatsApp on your phone.</li>
+          <li>Go to the chat you want to analyze.</li>
+          <li>Tap the <b>three dots</b> (menu) → <b>More</b> → <b>Export Chat</b>.</li>
+          <li>Choose <b>Without Media</b>.</li>
+          <li>Upload the <code>.txt</code> file above!</li>
+        </ol>
       </div>
     </div>
     """, unsafe_allow_html=True)
+
+    # Spacer to push footer to bottom of viewport
+    st.markdown("<div style='min-height: 35vh;'></div>", unsafe_allow_html=True)
+    render_footer()
     st.stop()
 
 st.session_state["analyzed"] = True
@@ -266,13 +623,23 @@ st.session_state["analyzed"] = True
 # ── Filter by user ─────────────────────────────────────────────────────────────
 df = df_all if selected_user == "Overall" else df_all[df_all["user"] == selected_user]
 
+# ══════════════════════════════════════════════════════════════════════════════
+# DASHBOARD HEADER
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown(f"""
+<div class="dash-header">
+    <div class="dash-title">📊 Dashboard</div>
+    <div class="dash-subtitle">Analyzing: <strong style="color:#00d2ff;">{selected_user}</strong></div>
+</div>
+<div class="gradient-divider"></div>
+""", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # KPI CARDS
 # ══════════════════════════════════════════════════════════════════════════════
 st.markdown('<div class="sec-header">Overview</div>', unsafe_allow_html=True)
 
-total_msgs, total_words, media_cnt, links_cnt = calc_stats(df)
+total_msgs, total_words, media_cnt, links_cnt = helper.calc_stats(df)
 
 c1, c2, c3, c4 = st.columns(4)
 for col, icon, label, val in [
@@ -292,15 +659,23 @@ st.markdown("<br>", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# PLOTLY THEME
+# ══════════════════════════════════════════════════════════════════════════════
+PLOT_LAYOUT = dict(
+    plot_bgcolor="rgba(0,0,0,0)",
+    paper_bgcolor="rgba(0,0,0,0)",
+    font=dict(color="#c0c0c0", family="Poppins"),
+    xaxis=dict(gridcolor="rgba(255,255,255,0.05)"),
+    yaxis=dict(gridcolor="rgba(255,255,255,0.05)"),
+)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # TABS
 # ══════════════════════════════════════════════════════════════════════════════
 t1, t2, t3, t4, t5, t6 = st.tabs([
     "📅 Timeline", "⏰ Activity", "👥 Users", "💬 Words", "😂 Emoji", "😊 Sentiment"
 ])
-
-# ─── matplotlib global style ─────────────────────────────────────────────────
-plt.rcParams.update({"font.family": "DejaVu Sans", "axes.spines.top": False,
-                     "axes.spines.right": False, "font.size": 8})
 
 # ─── TAB 1 — Timeline ────────────────────────────────────────────────────────
 with t1:
@@ -308,24 +683,25 @@ with t1:
 
     with L:
         st.markdown('<div class="sec-header">Monthly Timeline</div>', unsafe_allow_html=True)
-        mt = monthly_timeline(df)
-        fig, ax = plt.subplots(figsize=(6, 3))
-        ax.plot(range(len(mt)), mt["count"], color="#111", lw=2, marker="o", ms=4)
-        ax.fill_between(range(len(mt)), mt["count"], alpha=.07, color="#111")
-        ax.set_xticks(range(len(mt)))
-        ax.set_xticklabels(mt["label"], rotation=45, ha="right", fontsize=7)
-        ax.set_ylabel("Messages")
-        ax.spines["left"].set_visible(False); ax.yaxis.set_ticks_position("none")
-        plt.tight_layout(); st.pyplot(fig); plt.close()
+        mt = helper.monthly_timeline(df)
+        fig = px.area(mt, x="label", y="count", markers=True,
+                      color_discrete_sequence=["#ffffff"],
+                      labels={"label": "Month", "count": "Messages"})
+        fig.update_layout(**PLOT_LAYOUT, xaxis_title="", yaxis_title="Messages",
+                          margin=dict(l=0, r=0, t=20, b=0))
+        fig.update_traces(fillcolor="rgba(255, 255, 255, 0.15)")
+        st.plotly_chart(fig, use_container_width=True)
 
     with R:
         st.markdown('<div class="sec-header">Daily Timeline</div>', unsafe_allow_html=True)
-        dt = daily_timeline(df)
-        fig, ax = plt.subplots(figsize=(6, 3))
-        ax.plot(dt["only_date"], dt["count"], color="#777", lw=1, alpha=.9)
-        ax.fill_between(dt["only_date"], dt["count"], alpha=.05, color="#333")
-        ax.set_ylabel("Messages"); ax.tick_params(labelsize=7)
-        plt.tight_layout(); st.pyplot(fig); plt.close()
+        dt = helper.daily_timeline(df)
+        fig = px.line(dt, x="only_date", y="count",
+                      color_discrete_sequence=["#cccccc"],
+                      labels={"only_date": "Date", "count": "Messages"})
+        fig.update_traces(fill='tozeroy', fillcolor='rgba(200, 200, 200, 0.15)')
+        fig.update_layout(**PLOT_LAYOUT, xaxis_title="", yaxis_title="Messages",
+                          margin=dict(l=0, r=0, t=20, b=0))
+        st.plotly_chart(fig, use_container_width=True)
 
 # ─── TAB 2 — Activity ────────────────────────────────────────────────────────
 with t2:
@@ -333,23 +709,28 @@ with t2:
 
     with L:
         st.markdown('<div class="sec-header">Busiest Day of Week</div>', unsafe_allow_html=True)
-        wd = week_activity(df)
+        wd = helper.week_activity(df)
         wd.columns = ["day","count"]
-        max_val = wd["count"].max()
-        colors  = ["#111" if v == max_val else "#ddd" for v in wd["count"]]
-        fig, ax = plt.subplots(figsize=(5, 3.5))
-        ax.barh(wd["day"], wd["count"], color=colors, height=.6)
-        ax.spines["left"].set_visible(False); ax.tick_params(labelsize=8)
-        plt.tight_layout(); st.pyplot(fig); plt.close()
+        max_idx = wd["count"].idxmax()
+        colors = ['rgba(255, 255, 255, 0.1)'] * len(wd)
+        colors[max_idx] = '#ffffff'
+
+        fig = px.bar(wd, y="day", x="count", orientation='h',
+                     labels={"day": "", "count": "Messages"})
+        fig.update_traces(marker_color=colors, marker_line_width=0, opacity=0.9,
+                          hovertemplate='%{y}: %{x} msgs<extra></extra>')
+        fig.update_layout(**PLOT_LAYOUT, margin=dict(l=0, r=0, t=20, b=0))
+        st.plotly_chart(fig, use_container_width=True)
 
     with R:
         st.markdown('<div class="sec-header">Hour × Day Heatmap</div>', unsafe_allow_html=True)
-        hm = heatmap_data(df)
-        fig, ax = plt.subplots(figsize=(6, 3))
-        sns.heatmap(hm, ax=ax, cmap="Greys", linewidths=.3,
-                    linecolor="#f5f5f5", cbar_kws={"shrink":.6})
-        ax.set_xlabel("Hour"); ax.set_ylabel(""); ax.tick_params(labelsize=7)
-        plt.tight_layout(); st.pyplot(fig); plt.close()
+        hm = helper.heatmap_data(df)
+        fig = px.imshow(hm, color_continuous_scale=["#111111", "#444444", "#888888", "#ffffff"],
+                        aspect="auto",
+                        labels=dict(x="Hour of Day", y="Day of Week", color="Messages"))
+        fig.update_layout(**PLOT_LAYOUT, margin=dict(l=0, r=0, t=20, b=0),
+                          coloraxis_showscale=False)
+        st.plotly_chart(fig, use_container_width=True)
 
 # ─── TAB 3 — Users ───────────────────────────────────────────────────────────
 with t3:
@@ -357,13 +738,17 @@ with t3:
         st.info(f"User breakdown is only available for **Overall**. Currently: **{selected_user}**")
     else:
         st.markdown('<div class="sec-header">Most Active Users</div>', unsafe_allow_html=True)
-        tu, pct = top_users(df_all)
+        tu, pct = helper.top_users(df_all)
         L, R = st.columns([3, 2])
         with L:
-            fig, ax = plt.subplots(figsize=(5, 3.5))
-            ax.barh(tu["user"][::-1], tu["count"][::-1], color="#111", height=.6)
-            ax.spines["left"].set_visible(False); ax.tick_params(labelsize=8)
-            plt.tight_layout(); st.pyplot(fig); plt.close()
+            fig = px.bar(tu.sort_values('count', ascending=True),
+                         y="user", x="count", orientation='h',
+                         color="count",
+                         color_continuous_scale=["#444444", "#ffffff"],
+                         labels={"user": "", "count": "Messages"})
+            fig.update_layout(**PLOT_LAYOUT,
+                              margin=dict(l=0, r=0, t=0, b=0), coloraxis_showscale=False)
+            st.plotly_chart(fig, use_container_width=True)
         with R:
             st.dataframe(pct, width='stretch', hide_index=True)
 
@@ -373,23 +758,29 @@ with t4:
 
     with L:
         st.markdown('<div class="sec-header">Word Cloud</div>', unsafe_allow_html=True)
-        wc  = make_wordcloud(df)
-        fig, ax = plt.subplots(figsize=(6, 3))
-        ax.imshow(wc, interpolation="bilinear"); ax.axis("off")
-        plt.tight_layout(pad=0); st.pyplot(fig); plt.close()
+        wc  = helper.make_wordcloud(df)
+        fig = px.imshow(wc)
+        fig.update_layout(coloraxis_showscale=False, margin=dict(l=0,r=0,t=0,b=0),
+                          plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+        fig.update_xaxes(showticklabels=False); fig.update_yaxes(showticklabels=False)
+        st.plotly_chart(fig, use_container_width=True)
 
     with R:
         st.markdown('<div class="sec-header">Top 20 Words</div>', unsafe_allow_html=True)
-        tw = top_words(df)
-        fig, ax = plt.subplots(figsize=(5, 5))
-        ax.barh(tw["word"][::-1], tw["count"][::-1], color="#111", height=.7)
-        ax.spines["left"].set_visible(False); ax.tick_params(labelsize=8)
-        plt.tight_layout(); st.pyplot(fig); plt.close()
+        tw = helper.top_words(df)
+        fig = px.bar(tw.sort_values('count', ascending=True),
+                     y="word", x="count", orientation='h',
+                     color="count",
+                     color_continuous_scale=["#444444", "#cccccc"],
+                     labels={"word": "", "count": "Occurrences"})
+        fig.update_layout(**PLOT_LAYOUT,
+                          margin=dict(l=0, r=0, t=0, b=0), coloraxis_showscale=False)
+        st.plotly_chart(fig, use_container_width=True)
 
 # ─── TAB 5 — Emoji ───────────────────────────────────────────────────────────
 with t5:
     st.markdown('<div class="sec-header">Emoji Analysis</div>', unsafe_allow_html=True)
-    em = emoji_stats(df)
+    em = helper.emoji_stats(df)
     if em.empty:
         st.info("No emojis found in this chat.")
     else:
@@ -397,34 +788,47 @@ with t5:
         with L:
             st.dataframe(em.head(20), width='stretch', hide_index=True)
         with R:
-            fig, ax = plt.subplots(figsize=(5, 4))
             top8 = em.head(8)
-            ax.pie(top8["Count"], labels=top8["Emoji"], autopct="%1.1f%%",
-                   textprops={"fontsize":11},
-                   colors=plt.cm.Greys_r(np.linspace(.15, .85, len(top8))))
-            plt.tight_layout(); st.pyplot(fig); plt.close()
+            fig = px.pie(top8, values="Count", names="Emoji", hole=0.45,
+                         color_discrete_sequence=["#ffffff","#dddddd","#bbbbbb","#999999",
+                                                   "#777777","#555555","#333333","#111111"])
+            fig.update_traces(textposition='inside', textinfo='percent+label')
+            fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), showlegend=False,
+                              paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#c0c0c0"))
+            st.plotly_chart(fig, use_container_width=True)
 
 # ─── TAB 6 — Sentiment ───────────────────────────────────────────────────────
 with t6:
     st.markdown('<div class="sec-header">Sentiment by User (VADER)</div>', unsafe_allow_html=True)
-    sd = sentiment_stats(df)
-    fig, ax = plt.subplots(figsize=(7, 3.5))
-    colors = ["#2a7a2a" if v >= 0 else "#b33333" for v in sd["avg"]]
-    ax.bar(sd["user"], sd["avg"], color=colors, width=.5)
-    ax.axhline(0, color="#999", lw=.8, linestyle="--")
-    ax.set_ylabel("Avg VADER compound score"); ax.tick_params(labelsize=8)
-    plt.tight_layout(); st.pyplot(fig); plt.close()
+    sd = helper.sentiment_stats(df)
+    sd['color'] = sd['avg'].apply(lambda x: '#ffffff' if x >= 0 else '#555555')
+
+    fig = px.bar(sd, x="user", y="avg",
+                 labels={"user": "User", "avg": "Average VADER Score"})
+    fig.update_traces(marker_color=sd['color'])
+    fig.add_hline(y=0, line_dash="dash", line_color="#555", opacity=0.8)
+    fig.update_layout(**PLOT_LAYOUT, margin=dict(l=0, r=0, t=20, b=0))
+    st.plotly_chart(fig, use_container_width=True)
     st.caption("Score > 0 → positive  |  Score < 0 → negative  |  Range: −1 to +1")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # EXPORT
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown("---")
-csv = df[["date","user","message"]].to_csv(index=False).encode("utf-8")
-st.download_button(
-    "⬇️ Export filtered messages as CSV",
-    data=csv,
-    file_name=f"chat_{selected_user}.csv",
-    mime="text/csv",
-)
+st.markdown('<div class="gradient-divider"></div>', unsafe_allow_html=True)
+
+col_e1, col_e2, col_e3 = st.columns([1, 2, 1])
+with col_e2:
+    csv = df[["date","user","message"]].to_csv(index=False).encode("utf-8")
+    st.download_button(
+        "⬇️ Export filtered messages as CSV",
+        data=csv,
+        file_name=f"chat_{selected_user}.csv",
+        mime="text/csv",
+    )
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FOOTER
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown("<div style='min-height: 25vh;'></div>", unsafe_allow_html=True)
+render_footer()
