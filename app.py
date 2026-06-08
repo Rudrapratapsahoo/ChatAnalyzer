@@ -133,11 +133,17 @@ button[kind="header"] {{ display: none !important; }}
     font-weight: 600 !important;
     transition: all 0.3s ease !important;
 }}
+[data-testid="stFileUploader"] button *, [data-testid="stFileUploader"] button p {{
+    color: {bg_main} !important;
+}}
 [data-testid="stFileUploader"] button:hover {{
     background: {border_hover} !important;
     color: #ffffff !important;
     transform: translateY(-2px) !important;
     box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3) !important;
+}}
+[data-testid="stFileUploader"] button:hover *, [data-testid="stFileUploader"] button:hover p {{
+    color: #ffffff !important;
 }}
 [data-testid="stFileUploader"] small, [data-testid="stFileUploader"] div[data-testid="stFileUploaderDropzoneInstructions"] div {{
     color: {text_sec} !important;
