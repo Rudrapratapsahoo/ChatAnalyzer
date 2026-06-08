@@ -191,7 +191,13 @@ div[data-testid="stFormSubmitButton"] > button {{
 }}
 div[data-testid="stButton"] > button p,
 div[data-testid="stFormSubmitButton"] > button p,
-div[data-testid="stDownloadButton"] > button p {{
+div[data-testid="stDownloadButton"] > button p,
+div[data-testid="stButton"] > button div,
+div[data-testid="stFormSubmitButton"] > button div,
+div[data-testid="stDownloadButton"] > button div,
+div[data-testid="stButton"] > button span,
+div[data-testid="stFormSubmitButton"] > button span,
+div[data-testid="stDownloadButton"] > button span {{
     color: {bg_main} !important;
 }}
 div[data-testid="stButton"] > button:hover,
@@ -201,7 +207,11 @@ div[data-testid="stFormSubmitButton"] > button:hover {{
     background: {border_hover} !important;
 }}
 div[data-testid="stButton"] > button:hover p,
-div[data-testid="stFormSubmitButton"] > button:hover p {{
+div[data-testid="stFormSubmitButton"] > button:hover p,
+div[data-testid="stButton"] > button:hover div,
+div[data-testid="stFormSubmitButton"] > button:hover div,
+div[data-testid="stButton"] > button:hover span,
+div[data-testid="stFormSubmitButton"] > button:hover span {{
     color: #ffffff !important;
 }}
 
@@ -220,7 +230,9 @@ div[data-testid="stDownloadButton"] > button:hover {{
     box-shadow: 0 8px 20px rgba(14, 165, 233, 0.3);
     background: {border_hover};
 }}
-div[data-testid="stDownloadButton"] > button:hover p {{
+div[data-testid="stDownloadButton"] > button:hover p,
+div[data-testid="stDownloadButton"] > button:hover div,
+div[data-testid="stDownloadButton"] > button:hover span {{
     color: #ffffff !important;
 }}
 
