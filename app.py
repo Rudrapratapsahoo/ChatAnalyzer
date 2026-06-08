@@ -180,7 +180,7 @@ div[data-testid="stButton"] > button,
 div[data-testid="stFormSubmitButton"] > button {{
     background: {text_main} !important;
     color: {bg_main} !important;
-    border: none !important;
+    border: 2px solid {border_main} !important;
     border-radius: 50px !important;
     font-weight: 700 !important;
     font-family: 'Inter', sans-serif !important;
@@ -446,10 +446,23 @@ if not st.session_state["logged_in"]:
     # ── Login Form ──
     col_empty1, col_login, col_empty2 = st.columns([1.5, 1, 1.5])
     with col_login:
-        if st.button("Get Started Now ➜", use_container_width=True):
-            st.session_state["logged_in"] = True
-            st.session_state["username"] = "User"
-            st.rerun()
+        if not st.session_state.get("show_login_form", False):
+            if st.button("Get Started Now ➜", use_container_width=True):
+                st.session_state["show_login_form"] = True
+                st.rerun()
+        else:
+            with st.form("login_form"):
+                st.markdown("<h3 style='text-align: center; margin-bottom: 1rem;'>Login</h3>", unsafe_allow_html=True)
+                email = st.text_input("Email", placeholder="Enter your email")
+                password = st.text_input("Password", type="password", placeholder="Enter your password")
+                submit = st.form_submit_button("Enter", use_container_width=True)
+                if submit:
+                    if email and password:
+                        st.session_state["logged_in"] = True
+                        st.session_state["username"] = email.split("@")[0].capitalize() if "@" in email else email.capitalize()
+                        st.rerun()
+                    else:
+                        st.error("Please enter email and password")
 
     st.markdown("<br><br><br>", unsafe_allow_html=True)
 
@@ -541,8 +554,9 @@ with top_t:
     theme_icon = "☀️" if st.session_state["theme"] == "dark" else "🌙"
     st.button(theme_icon, on_click=toggle_theme, key="theme_toggle_main", help="Toggle Theme")
 with top_r:
-    if st.button("🚪", help="Logout"):
+    if st.button("Logout", help="Logout and return to home"):
         st.session_state["logged_in"] = False
+        st.session_state["show_login_form"] = False
         st.session_state["username"] = ""
         st.session_state.pop("df", None)
         st.session_state.pop("last_file", None)
