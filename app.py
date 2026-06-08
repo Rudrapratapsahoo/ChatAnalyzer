@@ -7,7 +7,7 @@ from wordcloud import WordCloud
 import numpy as np
 from collections import Counter
 import random, datetime
-import helper
+import chat_helper as helper
 from preprocessor import preprocess
 
 # ── Page config ───────────────────────────────────────────────────────────────
