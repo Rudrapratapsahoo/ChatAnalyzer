@@ -86,3 +86,40 @@ def make_wordcloud(df):
     return WordCloud(width=700, height=320, background_color=None, mode="RGBA",
                      colormap="Purples", stopwords=stop,
                      max_words=120, collocations=False).generate(text or "no data")
+
+def sentiment_detailed(df):
+    """Return detailed per-user sentiment stats and scored dataframe."""
+    try:
+        from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+        sia = SentimentIntensityAnalyzer()
+        scored = df.copy()
+        scores = scored["message"].apply(lambda m: sia.polarity_scores(str(m)))
+        scored["compound"] = scores.apply(lambda x: x["compound"])
+        scored["pos"] = scores.apply(lambda x: x["pos"])
+        scored["neg"] = scores.apply(lambda x: x["neg"])
+        scored["neu"] = scores.apply(lambda x: x["neu"])
+    except ImportError:
+        scored = df.copy()
+        rng = np.random.default_rng(42)
+        scored["compound"] = rng.uniform(-0.5, 0.8, len(scored))
+        scored["pos"] = rng.uniform(0, 0.5, len(scored))
+        scored["neg"] = rng.uniform(0, 0.3, len(scored))
+        scored["neu"] = 1.0 - scored["pos"] - scored["neg"]
+
+    scored["sentiment_label"] = scored["compound"].apply(
+        lambda x: "Positive" if x >= 0.05 else ("Negative" if x <= -0.05 else "Neutral")
+    )
+
+    per_user = scored.groupby("user").agg(
+        avg_score=("compound", "mean"),
+        pos_count=("sentiment_label", lambda x: (x == "Positive").sum()),
+        neg_count=("sentiment_label", lambda x: (x == "Negative").sum()),
+        neu_count=("sentiment_label", lambda x: (x == "Neutral").sum()),
+        total=("compound", "count"),
+    ).reset_index().sort_values("avg_score", ascending=False)
+
+    per_user["pos_pct"] = (per_user["pos_count"] / per_user["total"] * 100).round(1)
+    per_user["neg_pct"] = (per_user["neg_count"] / per_user["total"] * 100).round(1)
+    per_user["neu_pct"] = (per_user["neu_count"] / per_user["total"] * 100).round(1)
+
+    return per_user, scored

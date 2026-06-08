@@ -47,6 +47,18 @@ else:
     card_hover = "rgba(255, 255, 255, 0.2)"
     icon_1, icon_2, icon_3, icon_4 = "#cbd5e1", "#94a3b8", "#f8fafc", "#64748b"
 
+# ── Chart Palette (visible bar / gradient colours for both themes) ────────────
+if st.session_state["theme"] == "light":
+    bar_muted = "#93c5fd"
+    bar_accent = "#0284c7"
+    gradient_start, gradient_end = "#dbeafe", "#0ea5e9"
+    sentiment_pos, sentiment_neg, sentiment_neu = "#16a34a", "#dc2626", "#6b7280"
+else:
+    bar_muted = "#1e3a5f"
+    bar_accent = "#38bdf8"
+    gradient_start, gradient_end = "#0c2d48", "#38bdf8"
+    sentiment_pos, sentiment_neg, sentiment_neu = "#4ade80", "#f87171", "#64748b"
+
 # ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown(f"""
 <style>
@@ -507,7 +519,7 @@ if not st.session_state["logged_in"]:
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── Top bar ───────────────────────────────────────────────────────────────────
-top_l, top_t, top_r = st.columns([6, 1, 1])
+top_l, top_t, top_r = st.columns([10, 1, 1])
 with top_l:
     st.markdown(f"""
     <div style="display: flex; align-items: center; gap: 1rem; padding: 0.5rem 0;">
@@ -521,10 +533,9 @@ with top_l:
     """, unsafe_allow_html=True)
 with top_t:
     theme_icon = "☀️" if st.session_state["theme"] == "dark" else "🌙"
-    theme_label = "Light Mode" if st.session_state["theme"] == "dark" else "Dark Mode"
-    st.button(f"{theme_icon} {theme_label}", on_click=toggle_theme, key="theme_toggle_main", use_container_width=True)
+    st.button(theme_icon, on_click=toggle_theme, key="theme_toggle_main", help="Toggle Theme")
 with top_r:
-    if st.button("🚪 Logout", use_container_width=True):
+    if st.button("🚪", help="Logout"):
         st.session_state["logged_in"] = False
         st.session_state["username"] = ""
         st.session_state.pop("df", None)
@@ -689,20 +700,24 @@ with t1:
         st.markdown('<div class="sec-header">Monthly Timeline</div>', unsafe_allow_html=True)
         mt = helper.monthly_timeline(df)
         fig = px.area(mt, x="label", y="count", markers=True,
-                      color_discrete_sequence=[border_hover],
+                      color_discrete_sequence=[bar_accent],
                       labels={"label": "Month", "count": "Messages"})
         fig.update_layout(**PLOT_LAYOUT, xaxis_title="", yaxis_title="Messages",
                           margin=dict(l=0, r=0, t=20, b=0))
-        fig.update_traces(fillcolor="rgba(14, 165, 233, 0.15)")
+        fig.update_traces(fillcolor="rgba(14, 165, 233, 0.15)",
+                          line=dict(width=2.5), marker=dict(size=6),
+                          hovertemplate='<b>%{x}</b><br>Messages: %{y:,}<extra></extra>')
         st.plotly_chart(fig, use_container_width=True)
 
     with R:
         st.markdown('<div class="sec-header">Daily Timeline</div>', unsafe_allow_html=True)
         dt = helper.daily_timeline(df)
         fig = px.line(dt, x="only_date", y="count",
-                      color_discrete_sequence=[text_sec],
+                      color_discrete_sequence=[bar_accent],
                       labels={"only_date": "Date", "count": "Messages"})
-        fig.update_traces(fill='tozeroy', fillcolor='rgba(14, 165, 233, 0.1)')
+        fig.update_traces(fill='tozeroy', fillcolor='rgba(14, 165, 233, 0.1)',
+                          line=dict(width=1.5),
+                          hovertemplate='<b>%{x}</b><br>Messages: %{y:,}<extra></extra>')
         fig.update_layout(**PLOT_LAYOUT, xaxis_title="", yaxis_title="Messages",
                           margin=dict(l=0, r=0, t=20, b=0))
         st.plotly_chart(fig, use_container_width=True)
@@ -716,20 +731,20 @@ with t2:
         wd = helper.week_activity(df)
         wd.columns = ["day","count"]
         max_idx = wd["count"].idxmax()
-        colors = [grid_col] * len(wd)
-        colors[max_idx] = border_hover
+        colors = [bar_muted] * len(wd)
+        colors[max_idx] = bar_accent
 
         fig = px.bar(wd, y="day", x="count", orientation='h',
                      labels={"day": "", "count": "Messages"})
         fig.update_traces(marker_color=colors, marker_line_width=0, opacity=0.9,
-                          hovertemplate='%{y}: %{x} msgs<extra></extra>')
+                          hovertemplate='<b>%{y}</b><br>Messages: %{x:,}<extra></extra>')
         fig.update_layout(**PLOT_LAYOUT, margin=dict(l=0, r=0, t=20, b=0))
         st.plotly_chart(fig, use_container_width=True)
 
     with R:
         st.markdown('<div class="sec-header">Hour × Day Heatmap</div>', unsafe_allow_html=True)
         hm = helper.heatmap_data(df)
-        fig = px.imshow(hm, color_continuous_scale=[bg_main, border_hover],
+        fig = px.imshow(hm, color_continuous_scale=[gradient_start, gradient_end],
                         aspect="auto",
                         labels=dict(x="Hour of Day", y="Day of Week", color="Messages"))
         fig.update_layout(**PLOT_LAYOUT, margin=dict(l=0, r=0, t=20, b=0),
@@ -748,8 +763,9 @@ with t3:
             fig = px.bar(tu.sort_values('count', ascending=True),
                          y="user", x="count", orientation='h',
                          color="count",
-                         color_continuous_scale=[grid_col, border_hover],
+                         color_continuous_scale=[gradient_start, gradient_end],
                          labels={"user": "", "count": "Messages"})
+            fig.update_traces(hovertemplate='<b>%{y}</b><br>Messages: %{x:,}<extra></extra>')
             fig.update_layout(**PLOT_LAYOUT,
                               margin=dict(l=0, r=0, t=0, b=0), coloraxis_showscale=False)
             st.plotly_chart(fig, use_container_width=True)
@@ -775,8 +791,9 @@ with t4:
         fig = px.bar(tw.sort_values('count', ascending=True),
                      y="word", x="count", orientation='h',
                      color="count",
-                     color_continuous_scale=[grid_col, border_hover],
+                     color_continuous_scale=[gradient_start, gradient_end],
                      labels={"word": "", "count": "Occurrences"})
+        fig.update_traces(hovertemplate='<b>%{y}</b><br>Count: %{x:,}<extra></extra>')
         fig.update_layout(**PLOT_LAYOUT,
                           margin=dict(l=0, r=0, t=0, b=0), coloraxis_showscale=False)
         st.plotly_chart(fig, use_container_width=True)
@@ -802,17 +819,76 @@ with t5:
 
 # ─── TAB 6 — Sentiment ───────────────────────────────────────────────────────
 with t6:
-    st.markdown('<div class="sec-header">Sentiment by User (VADER)</div>', unsafe_allow_html=True)
-    sd = helper.sentiment_stats(df)
-    sd['color'] = sd['avg'].apply(lambda x: border_hover if x >= 0 else text_sec)
+    st.markdown('<div class="sec-header">💡 Sentiment Analysis</div>', unsafe_allow_html=True)
+    per_user_sent, scored_df = helper.sentiment_detailed(df_all)
+    per_user_sent = per_user_sent[per_user_sent["user"] != "group_notification"]
+    scored_clean = scored_df[scored_df["user"] != "group_notification"]
 
-    fig = px.bar(sd, x="user", y="avg",
-                 labels={"user": "User", "avg": "Average VADER Score"})
-    fig.update_traces(marker_color=sd['color'])
-    fig.add_hline(y=0, line_dash="dash", line_color=text_sec, opacity=0.8)
-    fig.update_layout(**PLOT_LAYOUT, margin=dict(l=0, r=0, t=20, b=0))
-    st.plotly_chart(fig, use_container_width=True)
-    st.caption("Score > 0 → positive  |  Score < 0 → negative  |  Range: −1 to +1")
+    # Overall sentiment KPIs
+    overall_avg = scored_clean["compound"].mean() if len(scored_clean) > 0 else 0
+    pos_total = int((scored_clean["sentiment_label"] == "Positive").sum())
+    neg_total = int((scored_clean["sentiment_label"] == "Negative").sum())
+    neu_total = int((scored_clean["sentiment_label"] == "Neutral").sum())
+    mood_emoji = "😊" if overall_avg >= 0.05 else ("😔" if overall_avg <= -0.05 else "😐")
+
+    k1, k2, k3, k4 = st.columns(4)
+    for col, icon, lbl, val in [
+        (k1, mood_emoji, "Overall Mood", f"{overall_avg:+.3f}"),
+        (k2, "😊", "Positive Msgs", f"{pos_total:,}"),
+        (k3, "😐", "Neutral Msgs", f"{neu_total:,}"),
+        (k4, "😔", "Negative Msgs", f"{neg_total:,}"),
+    ]:
+        col.markdown(f"""
+        <div class="kpi-card">
+            <div class="kpi-icon">{icon}</div>
+            <div class="kpi-label">{lbl}</div>
+            <div class="kpi-value">{val}</div>
+        </div>""", unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Charts Row
+    L, R = st.columns(2)
+    with L:
+        st.markdown('<div class="sec-header">Average Score per User</div>', unsafe_allow_html=True)
+        bar_colors = [sentiment_pos if v >= 0 else sentiment_neg for v in per_user_sent["avg_score"]]
+        fig = go.Figure(go.Bar(
+            x=per_user_sent["user"], y=per_user_sent["avg_score"],
+            marker_color=bar_colors, opacity=0.9,
+            hovertemplate='<b>%{x}</b><br>Score: %{y:.3f}<extra></extra>'
+        ))
+        fig.add_hline(y=0, line_dash="dash", line_color=text_sec, opacity=0.5)
+        fig.update_layout(**PLOT_LAYOUT, margin=dict(l=0, r=0, t=20, b=0),
+                          xaxis_title="", yaxis_title="Avg Compound Score")
+        st.plotly_chart(fig, use_container_width=True)
+
+    with R:
+        st.markdown('<div class="sec-header">Sentiment Distribution (%)</div>', unsafe_allow_html=True)
+        fig = go.Figure()
+        fig.add_trace(go.Bar(name="Positive", x=per_user_sent["user"], y=per_user_sent["pos_pct"],
+                             marker_color=sentiment_pos,
+                             hovertemplate='%{x}<br>Positive: %{y:.1f}%<extra></extra>'))
+        fig.add_trace(go.Bar(name="Neutral", x=per_user_sent["user"], y=per_user_sent["neu_pct"],
+                             marker_color=sentiment_neu,
+                             hovertemplate='%{x}<br>Neutral: %{y:.1f}%<extra></extra>'))
+        fig.add_trace(go.Bar(name="Negative", x=per_user_sent["user"], y=per_user_sent["neg_pct"],
+                             marker_color=sentiment_neg,
+                             hovertemplate='%{x}<br>Negative: %{y:.1f}%<extra></extra>'))
+        fig.update_layout(**PLOT_LAYOUT, barmode='stack',
+                          margin=dict(l=0, r=0, t=20, b=0),
+                          xaxis_title="", yaxis_title="Percentage (%)",
+                          legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5))
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Detailed per-person table
+    st.markdown('<div class="sec-header">📋 Detailed Sentiment per Person</div>', unsafe_allow_html=True)
+    tbl = per_user_sent[["user", "avg_score", "pos_count", "neu_count", "neg_count", "total", "pos_pct", "neg_pct"]].copy()
+    tbl.columns = ["User", "Avg Score", "😊 Positive", "😐 Neutral", "😔 Negative", "Total Msgs", "Pos %", "Neg %"]
+    tbl["Avg Score"] = tbl["Avg Score"].round(3)
+    tbl["Mood"] = tbl["Avg Score"].apply(lambda x: "😊" if x >= 0.05 else ("😔" if x <= -0.05 else "😐"))
+    tbl = tbl[["User", "Mood", "Avg Score", "😊 Positive", "😐 Neutral", "😔 Negative", "Total Msgs", "Pos %", "Neg %"]]
+    st.dataframe(tbl, use_container_width=True, hide_index=True)
+    st.caption("VADER Sentiment · Score ≥ 0.05 → Positive · Score ≤ −0.05 → Negative · Range: −1 to +1")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
