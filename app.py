@@ -544,7 +544,7 @@ if not st.session_state["logged_in"]:
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── Top bar ───────────────────────────────────────────────────────────────────
-top_l, top_t, top_r = st.columns([10, 1, 1])
+top_l, top_t, top_r = st.columns([8, 1, 2])
 with top_l:
     st.markdown(f"""
     <div style="display: flex; align-items: center; gap: 1rem; padding: 0.5rem 0;">
@@ -616,6 +616,17 @@ else:
 if not analyze and "analyzed" not in st.session_state:
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("""
+    <style>
+        .steps-card {
+            text-align: center;
+        }
+        .steps-card ol {
+            display: inline-block;
+            text-align: left;
+        }
+    </style>
+
+
     <div style="text-align:center; padding: 2rem 0; animation: fadeInUp 0.5s ease-out forwards;">
       <div class="hero-title">Unlock the secrets of your chats 🔓</div>
       <div class="hero-subtitle">
